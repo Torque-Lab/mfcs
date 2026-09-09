@@ -1,0 +1,335 @@
+import { DuckDBConnection, DuckDBInstance } from '@duckdb/node-api';
+
+
+interface RecordValue {
+	table_name: string;
+	extra_info?: string;
+}
+
+export class DevelopmentAnalysis {
+	private db_metadata: RecordValue[];
+	private db_name:string;
+	private csv_data_file_path:string
+	private duck!:DuckDBConnection
+
+	constructor(db_name:string, csv_data_file_path:string) {
+	this.db_metadata = [];
+	this.db_name=db_name
+	this.csv_data_file_path=csv_data_file_path
+	}
+
+
+	public async duck_db_init():Promise<{db_status:boolean,message:string,duck?:DuckDBConnection}>{
+		try{
+
+		const instance = await DuckDBInstance.create(this.db_name);
+		const duck = await instance.connect();
+		this.duck=duck
+		return {db_status:true,message:`db created with name ${this.db_name}`,duck}
+		}
+		catch (e){
+		   console.log("duck db init falied")
+		}
+		return {db_status:false,message:"failed to init duck db"}
+	}
+	public get_db_metadata(): RecordValue[] {
+		return this.db_metadata;
+	}
+
+	public set_db_metadata(record: RecordValue): void {
+		this.db_metadata.push(record);
+	}
+
+	public async load_csv_create_master_table(){
+		const result= await this.duck.run(`
+		CREATE TABLE IF NOT EXISTS village_data AS
+		SELECT *
+		FROM read_csv(
+			 "${this.csv_data_file_path}",
+			header = true
+			);
+		`);
+		console.log("master table created: village_data")
+		this.set_db_metadata({table_name:"village_data",extra_info:`
+			master tabke with entire data set created,you need to call rename column
+			to normalise larger name from raw data`})
+	}
+
+	public async rename_column_in_master_table(){
+
+		return await this.duck.run(
+
+		`
+		BEGIN TRANSACTION;
+		ALTER TABLE village_data RENAME COLUMN "STATE NAME" TO state_name;
+		ALTER TABLE village_data RENAME COLUMN "STATE CODE" TO state_code;
+		ALTER TABLE village_data RENAME COLUMN "DISTRICT NAME" TO district_name;
+		ALTER TABLE village_data RENAME COLUMN "DISTRICT CODE" TO district_code;
+		ALTER TABLE village_data RENAME COLUMN "SUB DISTRICT NAME" TO sub_district_name;
+		ALTER TABLE village_data RENAME COLUMN "SUB DISTRICT CODE" TO sub_district_code;
+		ALTER TABLE village_data RENAME COLUMN "BLOCK NAME" TO block_name;
+		ALTER TABLE village_data RENAME COLUMN "BLOCK CODE" TO block_code;
+		ALTER TABLE village_data RENAME COLUMN "GP NAME" TO gp_name;
+		ALTER TABLE village_data RENAME COLUMN "GP CODE" TO gp_code;
+		ALTER TABLE village_data RENAME COLUMN "VILLAGE NAME" TO village_name;
+		ALTER TABLE village_data RENAME COLUMN "VILLAGE CODE" TO village_code;
+		ALTER TABLE village_data RENAME COLUMN "VILLAGE PIN CODE" TO village_pincode;
+		ALTER TABLE village_data RENAME COLUMN "PC CODE" TO pc_code;
+		ALTER TABLE village_data RENAME COLUMN "AC CODE" TO ac_code;
+		ALTER TABLE village_data RENAME COLUMN "OTHER ASSEMBLY CONSTITUENCIES" TO other_assembly;
+
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF TOTAL POPULATION" TO population;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF MALE" TO male;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF FEMALE" TO female;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF TOTAL HOUSEHOLD" TO households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS ENGAGED MAJORLY IN FARM ACTIVITIES" TO farm_households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS ENGAGED MAJORLY IN NON-FARM ACTIVITIES" TO nonfarm_households;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF GOVERNMENT SEED CENTRES" TO seed_centres;
+		ALTER TABLE village_data RENAME COLUMN "WHETHER THIS VILLAGE IS A PART OF THE WATERSHED DEVELOPMENT PROJECT" TO watershed_project;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF COMMUNITY RAIN WATER HARVESTING SYSTEM/POND/DAM/CHECK DAM ETC." TO rainwater_harvesting;
+		ALTER TABLE village_data RENAME COLUMN "DOES THE VILLAGE HAS ANY FARMERS COLLECTIVE" TO farmers_collective;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF WAREHOUSE FOR FOOD GRAIN STORAGE" TO grain_warehouse;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PRIMARY PROCESSING FACILITIES AT THE VILLAGE LEVEL" TO primary_processing;
+		ALTER TABLE village_data RENAME COLUMN "DOES THE VILLAGE HAVE ACCESS TO CUSTOM HIRING CENTRE (AGRI-EQUIPMENTS)" TO custom_hiring;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL CULTIVABLE AREA (IN HECTARES), IF IN ACRES DIVIDE BY 2.47" TO cultivable_area_ha;
+		ALTER TABLE village_data RENAME COLUMN "NET SOWN AREA (IN HECTARES) , IF IN ACRES DIVIDE BY 2.47" TO sown_area_ha;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF SOIL TESTING CENTRES"TO soil_testing;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF FERTILIZER SHOP" TO fertilizer_shop;
+		ALTER TABLE village_data RENAME COLUMN "MAIN SOURCE OF IRRIGATION"TO irrigation_source;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF FARMERS USING DRIP/SPRINKLER IRRIGATION" TO drip_farmers;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL AREA IRRIGATED (IN HECTARE), IF IN ACRES DIVIDE BY 2.47" TO irrigated_area_ha;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL UNIRRIGATED LAND AREA (IN HECTARES), IF IN ACRES DIVIDE BY 2.47" TO unirrigated_area_ha;
+
+		ALTER TABLE village_data RENAME COLUMN "DOES THE VILLAGE HAVE LIVESTOCK EXTENSION SERVICES" TO livestock_extension;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF MILK COLLECTION CENTRE /MILK ROUTES / CHILLING CENTRES" TO milk_centre;
+		ALTER TABLE village_data RENAME COLUMN "ANY PROJECT SUPPORTING POULTRY DEVELOPMENT" TO poultry_project;
+		ALTER TABLE village_data RENAME COLUMN "ANY PROJECT SUPPORTING GOATARY DEVELOPMENT" TO goatery_project;
+		ALTER TABLE village_data RENAME COLUMN "ANY PROJECT SUPPORTING PIGERY DEVELOPMENT" TO pigery_project;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF VETERINARY CLINIC OR HOSPITAL" TO veterinary;
+		ALTER TABLE village_data RENAME COLUMN "COMMUNITY PONDS USED FOR FISHERIES" TO fishery_ponds;
+		ALTER TABLE village_data RENAME COLUMN "PISCICULTURE - INLAND FISHERY/COASTAL FISHERY/ANY OTHER" TO pisciculture;
+		ALTER TABLE village_data RENAME COLUMN "EXTENSION FACILITIES FOR AQUACULTURE" TO aquaculture_extension;
+
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WITH KUCCHA WALL AND KUCCHA ROOF" TO kuccha_households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WHO HAVE GOT A PMAY HOUSE (COMPLETED OR SANCTIONED)" TO pmay_households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WHO ARE IN THE PERMANENT WAIT LIST" TO housing_waitlist;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WHO GOT BENEFIT FROM ANY STATE SPECIFIC HOUSING SCHEME?" TO state_housing_benefits;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WHO ARE IN THE PERMANENT WAIT LIST OF STATE SPECIFIC HOUSING SCHEME?" TO state_housing_waitlist;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PIPED TAP WATER" TO piped_water;
+		ALTER TABLE village_data RENAME COLUMN "WHETHER THE VILLAGE IS CONNECTED TO ALL WEATHER ROAD" TO all_weather_road;
+		ALTER TABLE village_data RENAME COLUMN "WHETHER VILLAGE HAS INTERNAL PUCCA ROADS (CC/ BRICK ROAD)" TO pucca_roads;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PUBLIC TRANSPORT" TO public_transport;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF RAILWAY STATION" TO railway_station;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF ELECTRICITY FOR DOMESTIC USE" TO electricity;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER  OF HOUSEHOLDS AVAILING THE BENEFITS UNDER SAUBHAGYA SCHEME" TO saubhagya_households;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF ELECTRICITY SUPPLY TO MSME UNITS" TO msme_electricity;
+		ALTER TABLE village_data RENAME COLUMN "USE OF SOLAR ENERGY/WIND ENERGY FOR ELECTRIFICATION OF THE HOUSE" TO renewable_electricity;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS ELECTRIFIED BY SOLAR ENERGY/WIND ENERGY" TO renewable_households;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PANCHAYAT BHAWAN" TO panchayat_bhawan;
+		ALTER TABLE village_data RENAME COLUMN "IS THERE A COMMON SERVICE CENTRE (CSC) IN THE VILLAGE" TO csc;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PUBLIC INFORMATION BOARD UNDER PEOPLE'S PLAN CAMPAIGN" TO public_info_board;
+		ALTER TABLE village_data RENAME COLUMN "COMMON PASTURES AS PER REVENUE RECORDS" TO common_pastures;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS AVAILING BENEFITS OF PRADHAN MANTRI UJJWALA YOJANA (PMUY)" TO pmuy_households;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PUBLIC LIBRARY" TO public_library;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF RECREATIONAL CENTRE/SPORTS PLAYGROUND ETC" TO recreation;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF BANKS" TO banks;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF BUSINESS CORRESPONDENT WITH INTERNET CONNECTIVITY?" TO bc_internet;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF ATM" TO atm;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS HAVING JAN-DHAN BANK ACCOUNT" TO jan_dhan_households;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF POST OFFICE/SUB-POST OFFICE" TO post_office;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF TELEPHONE SERVICES" TO telephone;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF INTERNET/BROADBAND FACILITY" TO internet;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PUBLIC DISTRIBUTION SYSTEM (PDS)" TO pds;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS HAVING BPL RATION CARDS" TO bpl_households;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF PRIMARY SCHOOL" TO primary_school;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF MIDDLE SCHOOL" TO middle_school;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF HIGH SCHOOL" TO high_school;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF HIGHER/SENIOR SECONDARY SCHOOL" TO higher_secondary;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF CHILDREN NOT ATTENDING THE SCHOOL" TO school_nonattendance;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF DEGREE COLLEGE" TO degree_college;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF GRADUATES/POST GRADUATES IN THE VILLAGE" TO graduates;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF VOCATIONAL TRAINING CENTRE/POLYTECHNIC/ITI/RSETI /DDU-GKY" TO vocational_training;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF TRAINEES TRAINED UNDER ANY SKILL DEVELOPMENT PROGRAM" TO skill_trainees;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF MARKETS" TO market;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF SUB CENTRE PHC/CHC" TO health_centre;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF JAN AUSHADHI KENDRA" TO jan_aushadhi;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS REGISTERED FOR HEALTH INSURANCE SERVICES UNDER PRADHAN MANTRI JAN AROGYA YOJANA (PMJAY)/STATE SPECIFIC HEALTH INSURANCE SCHEMES" TO health_insurance;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF DRAINAGE FACILITIES" TO drainage;
+		ALTER TABLE village_data RENAME COLUMN "COMMUNITY WASTE DISPOSAL SYSTEM" TO waste_disposal;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF HOUSEHOLDS USING CLEAN ENERGY (LPG/BIO GAS)" TO clean_energy_households;
+		ALTER TABLE village_data RENAME COLUMN "COMMUNITY BIO GAS OR RECYCLE OF WASTE" TO biogas_recycling;
+
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF AANGANWADI CENTRE" TO anganwadi;
+		ALTER TABLE village_data RENAME COLUMN "IS EARLY CHILDHOOD EDUCATION PROVIDED IN THE ANGANWADI" TO anganwadi_early_education;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF CHILDREN IN THE AGE GROUP OF 0-3 YEARS IN THE VILLAGE" TO children_0_3;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF CHILDREN AGED 0-3 YEARS REGISTERED IN AANGANWADI" TO anganwadi_children_0_3;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF CHILDREN AGED 3-6 YEARS REGISTERED IN AANGANWADI" TO anganwadi_children_3_6;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF CHILDREN AGED 0-3 YEARS IMMUNIZED" TO immunized_0_3;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF CHILDREN CATEGORIZED AS NON-STUNTED AS PER ICDS RECORD" TO non_stunted_children;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF ANAEMIC PREGNANT WOMEN" TO anaemic_pregnant;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF ANAEMIC ADOLESCENT GIRLS" TO anaemic_girls;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF CHILDREN UNDER THE AGE OF 6 YEARS WHO ARE UNDERWEIGHT" TO underweight_children;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF MALE CHILDREN (0-6 YEARS)" TO male_children_0_6;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF FEMALE CHILDREN (0-6 YEARS)" TO female_children_0_6;
+
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF SC/ST/OBC/MINORITY CHILDREN GETTING SCHOLARSHIP" TO scholarship_children;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF SC/ST/OBC/MINORITY HOUSEHOLDS WHICH RECEIVED BANK LOANS" TO bank_loan_households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF PHYSICALLY CHALLENGED PERSONS WHO RECEIVED IMPLANTS AND APPLIANCES" TO disabled_beneficiaries;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WITH MORE THAN 2 CHILDREN" TO large_families;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF MOTHER AND CHILD HEALTH FACILITIES" TO mother_child_health;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS GETTING PENSIONS UNDER NATIONAL SOCIAL ASSISTANCE PROGRAMME (NSAP) (OLD AGE/DISABILITY/WIDOW/NATIONAL FAMILY BENEFIT SCHEME (NFBS)" TO nsap_pension_households;
+
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF SELF HELP GROUPS (SHGS)" TO shg_count;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS MOBILIZED INTO SHGS" TO shg_households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF SHGS FEDERATED INTO VILLAGE ORGANISATIONS (VOS)" TO shg_vos;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS MOBILIZED INTO PRODUCER GROUPS (PGS)" TO pg_households;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF SHGS WHICH ACCESSED BANK LOANS" TO shg_bank_loans;
+
+		ALTER TABLE village_data RENAME COLUMN "BEE KEEPING" TO beekeeping;
+		ALTER TABLE village_data RENAME COLUMN "SERICULTURE (SILK PRODUCTION)" TO sericulture;
+		ALTER TABLE village_data RENAME COLUMN "HANDLOOM" TO handloom;
+		ALTER TABLE village_data RENAME COLUMN "HANDICRAFTS" TO handicrafts;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF COMMUNITY FOREST" TO community_forest;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF MINOR FOREST PRODUCTION" TO minor_forest;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS WHERE ONLY SOURCE OF LIVELIHOOD IS MINOR FOREST PRODUCTION" TO minor_forest_households;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF COTTAGE AND SMALL SCALE UNITS (FABRICATION/CONSTRUCTION MATERIAL/DAIRY BASED/TEXTILE ETC.) UNITS" TO cottage_units;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS ENGAGED IN COTTAGE AND SMALL SCALE UNITS" TO cottage_households;
+		ALTER TABLE village_data RENAME COLUMN "AVAILABILITY OF ADULT EDUCATION CENTRE" TO adult_education;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF REGISTERED CHILDREN IN  ANGANWADI" TO anganwadi_registered;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF CHILDREN  (0-6 YEARS) IMMUNIZED UNDER ICDS" TO icds_immunized_0_6;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF PREGNANT WOMEN" TO pregnant_women;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF PREGNANT WOMEN RECEIVING  SERVICES UNDER ICDS" TO icds_pregnant;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF LACTATING MOTHERS" TO lactating_mothers;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF LACTATING MOTHERS RECEIVING SERVICES UNDER ICDS" TO icds_lactating;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF WOMEN DELIVERED BABIES AT THE HOSPITALS WHO ARE REGISTERED WITH ASHA ANGANWADI WORKERS" TO hospital_deliveries;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF CHILDREN IN ICDS COMMON APPLICATION SOFTWARE" TO icds_children;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF YOUNG ANAEMIC CHILDREN IN ICDS COMMON APPLICATION SOFTWARE (6-59 MONTHS)" TO anaemic_children_6_59m;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF NEWLY BORN CHILDREN DURING THE YEAR 2018-19" TO newborns;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF NEWLY BORN CHILDREN UNDERWEIGHT DURING THE YEAR 2018-19" TO underweight_newborns;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS NOT HAVING SANITARY LATRINES" TO no_latrine_households;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF ELIGIBLE BENEFICIARIES UNDER PRADHAN MANTRI MATRU VANDANA YOJANA" TO pmmvy_eligible;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF BENEFICIARIES RECEIVING BENEFITS UNDER PRADHAN MANTRI MATRU VANDANA YOJANA" TO pmmvy_beneficiaries;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF ELIGIBLE BENEFICIARIES UNDER AAYUSHMAN BHARAT-PRADHAN MANTRI JAN AROGYA YOJANA OR ANY STATE GOVT HEALTH SCHEME" TO health_scheme_eligible;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF BENEFICIARIES RECEIVING BENEFITS UNDER AAYUSHMAN BHARAT-PRADHAN MANTRI JAN AROGYA YOJANA OR ANY STATE GOVT HEALTH SCHEME" TO health_scheme_beneficiaries;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF ELIGIBLE HOUSEHOLDS UNDER NATIONAL FOOD SECURITY ACT (NFSA)" TO nfsa_eligible;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF HOUSEHOLDS RECEIVING FOOD GRAINS FROM FAIR PRICE SHOPS" TO foodgrain_households;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF FARMERS REGISTERED UNDER PRADHAN MANTRI KISAN PENSION YOJANA (PMKPY)" TO pmkpy_farmers;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF FARMERS IN THE AGE OF 18-40 YEARS SUBSCRIBED TO PRADHAN MANTRI KISAN PENSION YOJANA (PMKPY)" TO pmkpy_18_40;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF FARMERS" TO farmers;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF FARMERS RECEIVED BENEFITS UNDER PMFBY  (PRADHAN MANTRI FASAL BIMA YOJANA )" TO pmfby_farmers;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF FARMERS ADOPTED ORGANIC FARMING DURING 2018-19" TO organic_farmers;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF FARMERS RECEIVED THE SOIL TESTING REPORT" TO soil_test_farmers;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL NUMBER OF ELECTED REPRESENTATIVES" TO elected_representatives;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF ELECTED REPRESENTATIVES ORIENTED UNDER RASHTRIYA GRAM SWARAJ ABHIYAN" TO rgsa_oriented;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF ELECTED REPRESENTATIVES UNDERGONE REFRESHER TRAINING UNDER RASHTRIYA GRAM SWARAJ ABHIYAN" TO rgsa_trained;
+
+		ALTER TABLE village_data RENAME COLUMN "TOTAL APPROVED LABOUR BUDGET FOR THE YEAR 2018-19" TO labour_budget;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL EXPENDITURE APPROVED UNDER NRM IN THE LABOUR BUDGET FOR THE YEAR 2018-19)" TO nrm_expenditure;
+		ALTER TABLE village_data RENAME COLUMN "TOTAL AREA COVERED UNDER IRRIGATION (DRIP, SPRINKLER), IF IN ACRES DIVIDE BY 2.47" TO irrigation_covered_ha;
+		ALTER TABLE village_data RENAME COLUMN "NUMBER OF HOUSEHOLDS HAVING PIPED WATER CONNECTION" TO piped_water_households;
+
+		ALTER TABLE village_data RENAME COLUMN "VILLAGE LATITUDE" TO latitude;
+		ALTER TABLE village_data RENAME COLUMN "VILLAGE LONGITUDE" TO longitude;
+
+		COMMIT;
+
+		  `
+		)
+		}
+	public async create_district_wise_table(){
+
+		let total_table=0
+		let failed_to_create_table=0
+		const districts = await this.duck.run(`
+		SELECT DISTINCT district_name
+		FROM village_data
+		WHERE district_name IS NOT NULL
+		AND TRIM(district_name) <> ''
+		ORDER BY district_name;
+		`);
+
+		for (const row of await districts!!.getRowObjects()) {
+			const district = String(row.district_name).trim();
+			const tableName = `district_${district
+						.toLowerCase()
+						.replace(/[^a-z0-9]+/g, '_')
+						.replace(/^_+|_+$/g, '')}`;
+			total_table+=1;
+
+			try{
+			await this.duck.run(`
+			CREATE TABLE IF NOT EXISTS "${tableName}" AS
+			SELECT *
+			FROM village_data
+			WHERE district_name = '${district.replace(/'/g, "''")}';
+			`);
+			}catch (e){
+				failed_to_create_table+=1
+			}
+
+			this.set_db_metadata({table_name:tableName,extra_info:"this is the table for one district"})
+			console.log(`table created: ${tableName}`);
+		}
+
+		return {total_table:total_table,failed_to_create_table:failed_to_create_table}
+
+	}
+	public async normalised_all_cell_to_numeric_string(){
+
+		const cols = await this.duck!!.run(`
+		SELECT column_name
+		FROM information_schema.columns
+		WHERE table_name = 'village_data'
+		ORDER BY ordinal_position
+		`);
+
+		const rows = await cols.getRows();
+
+		const expressions = rows.map((r: any) => {
+		const col = r[0].replace(/"/g, '""');
+
+		return `
+			CASE
+			    WHEN lower(trim("${col}"::VARCHAR)) LIKE 'yes%' THEN 1.0
+			    WHEN lower(trim("${col}"::VARCHAR)) LIKE 'no%' THEN 0.0
+			    WHEN regexp_matches(
+			        "${col}"::VARCHAR,
+			        '[-+]?[0-9]*\\.?[0-9]+'
+			    )
+			    THEN list_sum(
+			        list_transform(
+			            regexp_extract_all(
+			                "${col}"::VARCHAR,
+			                '[-+]?[0-9]*\\.?[0-9]+'
+			            ),
+			            x -> TRY_CAST(x AS DOUBLE)
+			        )
+			    )
+			    ELSE NULL
+			END AS "${col}"
+			`;
+		}).join(",\n");
+
+	
+		return await this.duck!!.run(`
+		CREATE OR REPLACE TABLE village_data_numeric AS
+		SELECT
+		    ${expressions}
+		FROM village_data;
+		`);	
+	}
+
+	}
+

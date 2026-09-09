@@ -1,0 +1,24 @@
+{
+  "name": "mfcs",
+  "version": "1.0.0",
+  "description": "A deep socio-economic, development and infra  analysis of villages",
+  "license": "MIT",
+  "author": "Mathura kumar",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc -b",
+    "clean": "npm run clean:build && rm -f mfcs_duck.db mfcs_duck.db.wal  ",
+    "clean:build":"rm -rf dist",
+    "start:prod": "node dist/src/main.js",
+    "dev": "npm run build && npm run start:prod"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.5.5-r.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "ts-node": "^10.9.2"
+  }
+}

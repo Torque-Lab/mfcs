@@ -1,0 +1,4 @@
+dist
+node_modules
+mfcs_duck.db
+raw_data/**/*
