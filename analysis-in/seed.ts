@@ -1,6 +1,7 @@
 import { DuckDBConnection, DuckDBInstance } from '@duckdb/node-api';
 
 
+
 interface RecordValue {
 	table_name: string;
 	extra_info?: string;
